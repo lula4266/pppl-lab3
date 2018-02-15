@@ -37,34 +37,52 @@ object Lab3 extends JsyApplication with Lab3Like {
    * The implementations of these helper functions for conversions can come
    * Lab 2. The definitions for the new value type for Function are given.
    */
-  
+
   def toNumber(v: Expr): Double = {
     require(isValue(v))
     (v: @unchecked) match {
       case N(n) => n
-      case B(false) => ???
-      case B(true) => ???
-      case Undefined => ???
-      case S(s) => ???
+      case B(false) => 0
+      case B(true) => 1
+      case Undefined => Double.NaN
+      case S(str) => {
+        try{
+          str.toDouble
+        }
+        catch{
+          case e: NumberFormatException => Double.NaN
+        }
+      }
       case Function(_, _, _) => Double.NaN
     }
   }
-  
+
   def toBoolean(v: Expr): Boolean = {
     require(isValue(v))
     (v: @unchecked) match {
+      case N(n) => if (n == 0 || n.isNaN) false else true
       case B(b) => b
+      case S(str) => if (str == "") false else true
+      case Undefined => false
       case Function(_, _, _) => true
       case _ => ??? // delete this line when done
     }
   }
-  
+
   def toStr(v: Expr): String = {
     require(isValue(v))
     (v: @unchecked) match {
+      case N(n) => n match {
+        //case negative if n < 0 => "-" + toStr(N(-n)) // saves us a few cases
+        // case zero if n==0 => "0"
+        //case infinity if n.isInfinity => "Infinity"
+        case isWhole if n.isWhole() => isWhole.toInt.toString
+        case notWhole => notWhole.toString
+        case _ => "NaN"
+      }
+      case B(b) => if (b) "true" else "false"
       case S(s) => s
-        // Here in toStr(Function(_, _, _)), we will deviate from Node.js that returns the concrete syntax
-        // of the function (from the input program).
+      case Undefined => "undefined"
       case Function(_, _, _) => "function"
       case _ => ??? // delete this line when done
     }
@@ -95,11 +113,168 @@ object Lab3 extends JsyApplication with Lab3Like {
   def eval(env: Env, e: Expr): Expr = {
     e match {
       /* Base Cases */
-      case N(_) | B(_) | S(_) | Undefined | Function(_, _, _) => e
+      case Var(x) => lookup(env, x) // Get value associated in env map with our string
+      case N(n) => N(n)
+      case B(b) => B(b)
+      case S(str) => S(str)
+      case Undefined => Undefined
+      case Function(_, _, _) => e
       case Var(x) => ???
-      
+
       /* Inductive Cases */
+      case Unary(uop, e1) => {
+        uop match {
+          case Neg => {
+            val v1 = eval(env,e1)
+            val np = -toNumber(v1)
+            N(np)
+          }
+          case Not => {
+            val v1 = eval(env,e1)
+            val bp = !toBoolean(v1)
+            B(bp)
+          }
+        }
+      }
+      case Binary(bop, e1, e2) => {
+        bop match {
+          case Plus => {
+            val v1 = eval(env,e1)
+            val v2 = eval(env,e2)
+            (v1,v2) match {
+              case (S(x), _) => {
+                val str = toStr(v2)
+                S(x.concat(str))
+              }
+              case (_, S(y)) =>{
+                val str = toStr(v1)
+                S(str.concat(y))
+              }
+              case (_,_) => N(toNumber(v1)+toNumber(v2))
+            }
+          }
+          case Minus => {
+            val v1 = eval(env,e1)
+            val v2 = eval(env,e2)
+            val np = toNumber(v1)-toNumber(v2)
+            N(np)
+          }
+          case Times => {
+            val v1 = eval(env,e1)
+            val v2 = eval(env,e2)
+            val np = toNumber(v1)*toNumber(v2)
+            N(np)
+          }
+          case Div => {
+            val v1 = eval(env,e1)
+            val v2 = eval(env,e2)
+            val np = toNumber(v1)/toNumber(v2)
+            N(np)
+          }
+          case Eq => {
+            val v1 = eval(env,e1)
+            val v2 = eval(env,e2)
+            if(v1 == v2){
+              B(true)
+            }
+            else{
+              B(false)
+            }
+
+          }
+          case Ne => {
+            val v1 = eval(env,e1)
+            val v2 = eval(env,e2)
+
+            if(v1 != v2) {
+              B(true)
+            }else { B(false)}
+
+          }
+          case Lt => {
+            val v1:Expr = eval(env, e1)
+            val v2:Expr = eval(env, e2)
+            (v1,v2) match {
+              case (S(s1), S(s2)) =>
+                val comparison:Int = s1.compareTo(s2)
+                if (comparison < 0) {
+                  B(true)
+                } else {
+                  B(false)
+                }
+              case (_,_) =>
+                B(toNumber(v1) < toNumber(v2))
+            }
+          }
+          case Le => {
+            val v1:Expr = eval(env, e1)
+            val v2:Expr = eval(env, e2)
+            (v1,v2) match {
+              case (S(s1), S(s2)) =>
+                val comparison:Int = s1.compareTo(s2)
+                if (comparison <= 0) {
+                  B(true)
+                } else {
+                  B(false)
+                }
+              case (_,_) =>
+                B(toNumber(v1) <= toNumber(v2))
+            }
+          }
+          case Gt => {
+            val v1:Expr = eval(env, e1)
+            val v2:Expr = eval(env, e2)
+            (v1,v2) match {
+              case (S(s1), S(s2)) =>
+                val comparison:Int = s1.compareTo(s2)
+                if (comparison > 0) {
+                  B(true)
+                } else {
+                  B(false)
+                }
+              case (_,_) =>
+                B(toNumber(v1) > toNumber(v2))
+            }
+          }
+          case Ge => {
+            val v1:Expr = eval(env, e1)
+            val v2:Expr = eval(env, e2)
+            (v1,v2) match {
+              case (S(s1), S(s2)) =>
+                val comparison:Int = s1.compareTo(s2)
+                if (comparison >= 0) {
+                  B(true)
+                } else {
+                  B(false)
+                }
+              case (_,_) =>
+                B(toNumber(v1) >= toNumber(v2))
+            }
+          }
+
+          case And => {
+            val v1 = eval(env, e1)
+            if (toBoolean(v1)) eval(env, e2) else v1
+          }
+          case Or => {
+            val v1 = eval(env, e1)
+            if (toBoolean(v1)) v1 else eval(env, e2)
+          }
+          case Seq => {
+            val v1 = eval(env,e1)
+            val v2 = eval(env,e2)
+            v2
+          }
+        }
+      }
+      case If(e1, e2, e3) => if (toBoolean(eval(env, e1))) eval(env, e2) else eval(env, e3)
+      case ConstDecl(x, e1, e2) => {
+        val v:Expr = eval(env, e1) // Evaluate down to guarantee we are at a value, otherwise extend fails a require()
+        val newEnv = extend(env, x, v) // Add the value to the env map, a running list of variables
+        eval(newEnv, e2) // Evaluate following expressions with the scoped variable
+      }
       case Print(e1) => println(pretty(eval(env, e1))); Undefined
+      case _ => ???
 
         // ****** Your cases here
 
