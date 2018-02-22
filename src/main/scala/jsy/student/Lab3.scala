@@ -100,7 +100,20 @@ object Lab3 extends JsyApplication with Lab3Like {
     require(isValue(v2))
     require(bop == Lt || bop == Le || bop == Gt || bop == Ge)
     (v1, v2) match {
-      case _ => ??? // delete this line when done
+      case (S(x),S(y)) => bop match {
+        case Lt => x < y
+        case Le => x <= y
+        case Gt => x > y
+        case Ge => x>= y
+        case _ => ??? //throw new UnsupportedOperationException
+      }
+      case (x, y) => bop match{
+        case Lt => toNumber(x) < toNumber(y)
+        case Le => toNumber(x) <= toNumber(y)
+        case Gt => toNumber(x) > toNumber(y)
+        case Ge => toNumber(x) >= toNumber(y)
+        case _ => ??? //throw new UnsupportedOperationException
+      }
     }
   }
 
@@ -118,8 +131,10 @@ object Lab3 extends JsyApplication with Lab3Like {
       case B(b) => B(b)
       case S(str) => S(str)
       case Undefined => Undefined
-      case Function(_, _, _) => e
-      case Var(x) => ???
+      case Function(p,x,y) => {
+        Function(p,x,y)
+      }
+
 
       /* Inductive Cases */
       case Unary(uop, e1) => {
@@ -174,23 +189,36 @@ object Lab3 extends JsyApplication with Lab3Like {
           case Eq => {
             val v1 = eval(env,e1)
             val v2 = eval(env,e2)
-            if(v1 == v2){
-              B(true)
+            (v1,v2) match{
+              case (Function(_,_,_),_) => throw DynamicTypeError(e)
+              case (_,Function(_,_,_)) => throw DynamicTypeError(e)
+              case (_,_) =>{
+                if(v1 == v2){
+                  B(true)
+                }
+                else{
+                  B(false)
+                }
+              }
             }
-            else{
-              B(false)
-            }
-
           }
+
           case Ne => {
-            val v1 = eval(env,e1)
-            val v2 = eval(env,e2)
-
-            if(v1 != v2) {
-              B(true)
-            }else { B(false)}
-
+            val v1 = eval(env, e1)
+            val v2 = eval(env, e2)
+            (v1, v2) match {
+              case (Function(_, _, _), _) => throw DynamicTypeError(e)
+              case (_, Function(_, _, _)) => throw DynamicTypeError(e)
+              case (_, _) => {
+                if (v1 != v2) {
+                  B(true)
+                } else {
+                  B(false)
+                }
+              }
+            }
           }
+
           case Lt => {
             val v1:Expr = eval(env, e1)
             val v2:Expr = eval(env, e2)
@@ -202,8 +230,11 @@ object Lab3 extends JsyApplication with Lab3Like {
                 } else {
                   B(false)
                 }
+              case (Function(_,_,_),_) => throw DynamicTypeError(e)
+              case (_,Function(_,_,_)) => throw DynamicTypeError(e)
               case (_,_) =>
                 B(toNumber(v1) < toNumber(v2))
+
             }
           }
           case Le => {
@@ -217,8 +248,11 @@ object Lab3 extends JsyApplication with Lab3Like {
                 } else {
                   B(false)
                 }
+              case (Function(_,_,_),_) => throw DynamicTypeError(e)
+              case (_,Function(_,_,_)) => throw DynamicTypeError(e)
               case (_,_) =>
                 B(toNumber(v1) <= toNumber(v2))
+
             }
           }
           case Gt => {
@@ -232,8 +266,11 @@ object Lab3 extends JsyApplication with Lab3Like {
                 } else {
                   B(false)
                 }
+              case (Function(_,_,_),_) => throw DynamicTypeError(e)
+              case (_,Function(_,_,_)) => throw DynamicTypeError(e)
               case (_,_) =>
                 B(toNumber(v1) > toNumber(v2))
+
             }
           }
           case Ge => {
@@ -247,9 +284,13 @@ object Lab3 extends JsyApplication with Lab3Like {
                 } else {
                   B(false)
                 }
+              case (Function(_,_,_),_) => throw DynamicTypeError(e)
+              case (_,Function(_,_,_)) => throw DynamicTypeError(e)
               case (_,_) =>
                 B(toNumber(v1) >= toNumber(v2))
+
             }
+
           }
 
           case And => {
@@ -261,10 +302,11 @@ object Lab3 extends JsyApplication with Lab3Like {
             if (toBoolean(v1)) v1 else eval(env, e2)
           }
           case Seq => {
-            val v1 = eval(env,e1)
-            val v2 = eval(env,e2)
+            val v1 = eval(env, e1)
+            val v2 = eval(env, e2)
             v2
           }
+          case _ => throw DynamicTypeError(e)
         }
       }
       case If(e1, e2, e3) => if (toBoolean(eval(env, e1))) eval(env, e2) else eval(env, e3)
@@ -274,12 +316,25 @@ object Lab3 extends JsyApplication with Lab3Like {
         eval(newEnv, e2) // Evaluate following expressions with the scoped variable
       }
       case Print(e1) => println(pretty(eval(env, e1))); Undefined
-      case _ => ???
+
 
         // ****** Your cases here
 
-      case Call(e1, e2) => ???
-      case _ => ??? // delete this line when done
+      case Call(e1, e2) => {
+        eval(env,e1) match {
+          case Function(Some(p),x,y)=>{
+            val newEnv = extend(env,p,eval(env,e1))
+            val newEnv2 = extend(newEnv,x,eval(newEnv,e2))
+            eval(newEnv2,y)
+        }
+          case Function(None, x, y) => {
+            val newEnv = extend(env,x,eval(env,e2))
+            eval(newEnv,y)
+          }
+          case _ => throw DynamicTypeError(e)
+        }
+      }
+      case _ => ???
     }
   }
     
