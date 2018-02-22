@@ -342,7 +342,13 @@ object Lab3 extends JsyApplication with Lab3Like {
   /* Small-Step Interpreter with Static Scoping */
 
   def iterate(e0: Expr)(next: (Expr, Int) => Option[Expr]): Expr = {
-    def loop(e: Expr, n: Int): Expr = ???
+    def loop(e: Expr, n: Int): Expr = {
+      val v = next(e,n)
+      v match {
+        case Some(e1) => loop(e1,n+1)
+        case None => e
+      }
+    }
     loop(e0, 0)
   }
   
@@ -351,8 +357,8 @@ object Lab3 extends JsyApplication with Lab3Like {
     e match {
       case N(_) | B(_) | Undefined | S(_) => e
       case Print(e1) => Print(substitute(e1, v, x))
-      case Unary(uop, e1) => ???
-      case Binary(bop, e1, e2) => ???
+      case Unary(uop, e1) => Unary(uop,substitute(e1,v,x))
+      case Binary(bop, e1, e2) => Binary(bop,substitute(e1,v,x),substitute(e2,v,x))
       case If(e1, e2, e3) => ???
       case Call(e1, e2) => ???
       case Var(y) => ???
@@ -366,6 +372,51 @@ object Lab3 extends JsyApplication with Lab3Like {
     e match {
       /* Base Cases: Do Rules */
       case Print(v1) if isValue(v1) => println(pretty(v1)); Undefined
+      case Unary(neg,v1) if isValue(v1) => N(-toNumber(v1))
+      case Unary(Not, v1) if isValue(v1) => B(!toBoolean(v1))
+
+
+      case Binary(Plus,v1,v2) if isValue(v1) && isValue(v2) => (v1,v2) match{
+        case (S(x),_) => S(x.concat(toStr(v2)))
+        case (_,S(y)) => S(y.concat(toStr(v1)))
+        case (_,__) => N(toNumber(v1)+toNumber(v2))
+      }
+      case Binary(bop,v1,v2) if isValue(v1) && isValue(v2) => bop match {
+        case Times => N(toNumber(v1) * toNumber(v2))
+        case Minus => N(toNumber(v1) - toNumber(v2))
+        case Div => N(toNumber(v1) / toNumber(v2))
+        case Lt => (v1, v2) match {
+          case (S(x), S(y)) => B(x < y)
+          case (_, _) => B(toNumber(v1) < toNumber(v2))
+        }
+        case Le => (v1, v2) match {
+          case (S(x), S(y)) => B(x <= y)
+          case (_, _) => B(toNumber(v1) <= toNumber(v2))
+        }
+        case Gt => (v1, v2) match {
+          case (S(x), S(y)) => B(x > y)
+          case (_, _) => B(toNumber(v1) > toNumber(v2))
+        }
+        case Ge => (v1, v2) match {
+          case (S(x), S(y)) => B(x >= y)
+          case (_, _) => B(toNumber(v1) >= toNumber(v2))
+        }
+      }
+      case Binary(Seq,v1,e2) if isValue(v1) => e2
+      case Binary(And, v1,v2) if isValue(v1) => if(toBoolean(v1)) v2 else v1
+      case Binary(Or,v1,v2) if isValue(v1) => if(toBoolean(v1)) v1 else v2
+      case If(v1,e2,e3) => ???
+      case Binary(Eq,v1,v2) =>  (v1,v2) match{
+        case(Function(_,_,_),_) => throw DynamicTypeError(e)
+        case (_,Function(_,_,_)) => throw DynamicTypeError(e)
+        case (_,_) => B(v1==v2)
+      }
+      case Binary(Ne, v1,v2) => (v1,v2) match {
+        case (Function(_, _, _), _) => throw DynamicTypeError(e)
+        case (_, Function(_, _, _)) => throw DynamicTypeError(e)
+        case (_, _) => B(v1 != v2)
+      }
+
       
         // ****** Your cases here
       
