@@ -359,12 +359,15 @@ object Lab3 extends JsyApplication with Lab3Like {
       case Print(e1) => Print(substitute(e1, v, x))
       case Unary(uop, e1) => Unary(uop,substitute(e1,v,x))
       case Binary(bop, e1, e2) => Binary(bop,substitute(e1,v,x),substitute(e2,v,x))
-      case If(e1, e2, e3) => ???
-      case Call(e1, e2) => ???
-      case Var(y) => ???
-      case Function(None, y, e1) => ???
-      case Function(Some(y1), y2, e1) => ???
-      case ConstDecl(y, e1, e2) => ???
+      case If(e1, e2, e3) => If(substitute(e1,v,x),substitute(e2,v,x), substitute(e3,v,x))
+      case Call(e1, e2) => Call(substitute(e1,v,x),substitute(e2,v,x))
+      case Var(y) => {
+        if (x==y) v
+        else Var(y)
+      }
+      case Function(None, y, e1) => if(x==y) Function(None,y,e1) else Function(None,y,substitute(e1,v,x))
+      case Function(Some(y1), y2, e1) => if(y1 == x || y2 == x) Function(Some(y1),y2,e1) else Function(Some(y1),y2,substitute(e1,v,x))
+      case ConstDecl(y, e1, e2) => if(x==y) ConstDecl(y,substitute(e1,v,x),e2)else ConstDecl(y,substitute(e1,v,x),substitute(e2,v,x))
     }
   }
     
@@ -372,6 +375,7 @@ object Lab3 extends JsyApplication with Lab3Like {
     e match {
       /* Base Cases: Do Rules */
       case Print(v1) if isValue(v1) => println(pretty(v1)); Undefined
+      case N(_)|B(_)|S(_)|Undefined|Function(_,_,_) => e
       case Unary(neg,v1) if isValue(v1) => N(-toNumber(v1))
       case Unary(Not, v1) if isValue(v1) => B(!toBoolean(v1))
 
@@ -381,47 +385,79 @@ object Lab3 extends JsyApplication with Lab3Like {
         case (_,S(y)) => S(y.concat(toStr(v1)))
         case (_,__) => N(toNumber(v1)+toNumber(v2))
       }
-      case Binary(bop,v1,v2) if isValue(v1) && isValue(v2) => bop match {
+      case Binary(bop @(Times|Minus|Div|Lt|Le|Gt|Ge),v1,v2) if isValue(v1) && isValue(v2) => bop match {
         case Times => N(toNumber(v1) * toNumber(v2))
         case Minus => N(toNumber(v1) - toNumber(v2))
         case Div => N(toNumber(v1) / toNumber(v2))
         case Lt => (v1, v2) match {
           case (S(x), S(y)) => B(x < y)
+          case (Function(_,_,_),_) => throw DynamicTypeError(e)
+          case (_,Function(_,_,_)) => throw DynamicTypeError(e)
           case (_, _) => B(toNumber(v1) < toNumber(v2))
         }
         case Le => (v1, v2) match {
           case (S(x), S(y)) => B(x <= y)
+          case (Function(_,_,_),_) => throw DynamicTypeError(e)
+          case (_,Function(_,_,_)) => throw DynamicTypeError(e)
           case (_, _) => B(toNumber(v1) <= toNumber(v2))
         }
         case Gt => (v1, v2) match {
           case (S(x), S(y)) => B(x > y)
+          case (Function(_,_,_),_) => throw DynamicTypeError(e)
+          case (_,Function(_,_,_)) => throw DynamicTypeError(e)
           case (_, _) => B(toNumber(v1) > toNumber(v2))
         }
         case Ge => (v1, v2) match {
           case (S(x), S(y)) => B(x >= y)
+          case (Function(_,_,_),_) => throw DynamicTypeError(e)
+          case (_,Function(_,_,_)) => throw DynamicTypeError(e)
           case (_, _) => B(toNumber(v1) >= toNumber(v2))
         }
       }
       case Binary(Seq,v1,e2) if isValue(v1) => e2
-      case Binary(And, v1,v2) if isValue(v1) => if(toBoolean(v1)) v2 else v1
+      case Binary(And, v1,e2) if isValue(v1) => if(toBoolean(v1)) e2 else v1
       case Binary(Or,v1,v2) if isValue(v1) => if(toBoolean(v1)) v1 else v2
-      case If(v1,e2,e3) => ???
-      case Binary(Eq,v1,v2) =>  (v1,v2) match{
+      case Binary(Eq,v1,v2) if(isValue(v1) && isValue(v2)) =>  (v1,v2) match{
         case(Function(_,_,_),_) => throw DynamicTypeError(e)
         case (_,Function(_,_,_)) => throw DynamicTypeError(e)
         case (_,_) => B(v1==v2)
       }
-      case Binary(Ne, v1,v2) => (v1,v2) match {
+      case Binary(Ne, v1,v2) if(isValue(v1) && isValue(v2)) => (v1,v2) match {
         case (Function(_, _, _), _) => throw DynamicTypeError(e)
         case (_, Function(_, _, _)) => throw DynamicTypeError(e)
         case (_, _) => B(v1 != v2)
       }
+      case If(v1,e2,e3) if(isValue(v1))=> if(toBoolean(v1)) e2 else e3
+      case Call(v1,v2) if(isValue(v1) && isValue(v2))=>
+        v1 match{
+          case Function(None,x,y)=> substitute(y,v2,x)
+          case Function(Some(p),x,y)=> substitute(substitute(y,v1,p),v2,x)
+        }
+      case ConstDecl(x,v1,e2) if(isValue(v1))=> substitute(e2,v1,x)
 
       
         // ****** Your cases here
       
       /* Inductive Cases: Search Rules */
       case Print(e1) => Print(step(e1))
+      case Unary(uop,e1) => Unary(uop,step(e1))
+      case Binary(bop @(Eq | Ne),v1,e2) if(isValue(v1)) => v1 match{
+        case Function(_,_,_)=> throw DynamicTypeError(e)
+        case _ => Binary(bop,v1,step(e2))
+      }
+      case Binary(bop @(Minus|Plus|Times|Div|Lt|Le|Gt|Ge),v1,e2) if(isValue(v1))=> Binary(bop,v1,step(e2))
+      case Binary(bop,e1,e2) if(!isValue(e1)) => Binary(bop,step(e1),e2)
+      case Call(e1,e2) => {
+        if(isValue(e1)) e1 match{
+        case Function(_,_,_)=> Call(e1,step(e2))
+        case _ => throw DynamicTypeError(e)
+        }
+        else Call(step(e1),e2)
+      }
+      case If(e1,e2,e3) if(!isValue(e1)) => If(step(e1),e2,e3)
+      case ConstDecl(x,e1,e2) if(!isValue(e1)) => ConstDecl(x,step(e1),e2)
+
+
       
         // ****** Your cases here
 
