@@ -230,8 +230,8 @@ object Lab3 extends JsyApplication with Lab3Like {
                 } else {
                   B(false)
                 }
-              case (Function(_,_,_),_) => throw DynamicTypeError(e)
-              case (_,Function(_,_,_)) => throw DynamicTypeError(e)
+              //case (Function(_,_,_),_) => throw DynamicTypeError(e)
+              //case (_,Function(_,_,_)) => throw DynamicTypeError(e)
               case (_,_) =>
                 B(toNumber(v1) < toNumber(v2))
 
@@ -248,8 +248,8 @@ object Lab3 extends JsyApplication with Lab3Like {
                 } else {
                   B(false)
                 }
-              case (Function(_,_,_),_) => throw DynamicTypeError(e)
-              case (_,Function(_,_,_)) => throw DynamicTypeError(e)
+              //case (Function(_,_,_),_) => throw DynamicTypeError(e)
+              //case (_,Function(_,_,_)) => throw DynamicTypeError(e)
               case (_,_) =>
                 B(toNumber(v1) <= toNumber(v2))
 
@@ -266,8 +266,8 @@ object Lab3 extends JsyApplication with Lab3Like {
                 } else {
                   B(false)
                 }
-              case (Function(_,_,_),_) => throw DynamicTypeError(e)
-              case (_,Function(_,_,_)) => throw DynamicTypeError(e)
+             // case (Function(_,_,_),_) => throw DynamicTypeError(e)
+              //case (_,Function(_,_,_)) => throw DynamicTypeError(e)
               case (_,_) =>
                 B(toNumber(v1) > toNumber(v2))
 
@@ -284,8 +284,8 @@ object Lab3 extends JsyApplication with Lab3Like {
                 } else {
                   B(false)
                 }
-              case (Function(_,_,_),_) => throw DynamicTypeError(e)
-              case (_,Function(_,_,_)) => throw DynamicTypeError(e)
+              //case (Function(_,_,_),_) => throw DynamicTypeError(e)
+              //case (_,Function(_,_,_)) => throw DynamicTypeError(e)
               case (_,_) =>
                 B(toNumber(v1) >= toNumber(v2))
 
@@ -376,7 +376,7 @@ object Lab3 extends JsyApplication with Lab3Like {
       /* Base Cases: Do Rules */
       case Print(v1) if isValue(v1) => println(pretty(v1)); Undefined
       case N(_)|B(_)|S(_)|Undefined|Function(_,_,_) => e
-      case Unary(neg,v1) if isValue(v1) => N(-toNumber(v1))
+      case Unary(Neg,v1) if isValue(v1) => N(-toNumber(v1))
       case Unary(Not, v1) if isValue(v1) => B(!toBoolean(v1))
 
 
@@ -391,26 +391,26 @@ object Lab3 extends JsyApplication with Lab3Like {
         case Div => N(toNumber(v1) / toNumber(v2))
         case Lt => (v1, v2) match {
           case (S(x), S(y)) => B(x < y)
-          case (Function(_,_,_),_) => throw DynamicTypeError(e)
-          case (_,Function(_,_,_)) => throw DynamicTypeError(e)
+          //case (Function(_,_,_),_) => throw DynamicTypeError(e)
+          //case (_,Function(_,_,_)) => throw DynamicTypeError(e)
           case (_, _) => B(toNumber(v1) < toNumber(v2))
         }
         case Le => (v1, v2) match {
           case (S(x), S(y)) => B(x <= y)
-          case (Function(_,_,_),_) => throw DynamicTypeError(e)
-          case (_,Function(_,_,_)) => throw DynamicTypeError(e)
+          //case (Function(_,_,_),_) => throw DynamicTypeError(e)
+          //case (_,Function(_,_,_)) => throw DynamicTypeError(e)
           case (_, _) => B(toNumber(v1) <= toNumber(v2))
         }
         case Gt => (v1, v2) match {
           case (S(x), S(y)) => B(x > y)
-          case (Function(_,_,_),_) => throw DynamicTypeError(e)
-          case (_,Function(_,_,_)) => throw DynamicTypeError(e)
+          //case (Function(_,_,_),_) => throw DynamicTypeError(e)
+          //case (_,Function(_,_,_)) => throw DynamicTypeError(e)
           case (_, _) => B(toNumber(v1) > toNumber(v2))
         }
         case Ge => (v1, v2) match {
           case (S(x), S(y)) => B(x >= y)
-          case (Function(_,_,_),_) => throw DynamicTypeError(e)
-          case (_,Function(_,_,_)) => throw DynamicTypeError(e)
+          //case (Function(_,_,_),_) => throw DynamicTypeError(e)
+          //case (_,Function(_,_,_)) => throw DynamicTypeError(e)
           case (_, _) => B(toNumber(v1) >= toNumber(v2))
         }
       }
@@ -420,18 +420,27 @@ object Lab3 extends JsyApplication with Lab3Like {
       case Binary(Eq,v1,v2) if(isValue(v1) && isValue(v2)) =>  (v1,v2) match{
         case(Function(_,_,_),_) => throw DynamicTypeError(e)
         case (_,Function(_,_,_)) => throw DynamicTypeError(e)
-        case (_,_) => B(v1==v2)
+        case (_,_) => v1 match{
+          case N(n) => B(n == toNumber(v2))
+          case S(s) => B(s == toStr(v2))
+          case B(b) => B(b == toBoolean(v2))
+        }
       }
       case Binary(Ne, v1,v2) if(isValue(v1) && isValue(v2)) => (v1,v2) match {
         case (Function(_, _, _), _) => throw DynamicTypeError(e)
         case (_, Function(_, _, _)) => throw DynamicTypeError(e)
-        case (_, _) => B(v1 != v2)
+        case (_, _) => v1 match {
+          case N(n) => B(n != toNumber(v2))
+          case S(s) => B(s != toStr(v2))
+          case B(b) => B(b != toBoolean(v2))
+        }
       }
       case If(v1,e2,e3) if(isValue(v1))=> if(toBoolean(v1)) e2 else e3
       case Call(v1,v2) if(isValue(v1) && isValue(v2))=>
         v1 match{
           case Function(None,x,y)=> substitute(y,v2,x)
           case Function(Some(p),x,y)=> substitute(substitute(y,v1,p),v2,x)
+          case _ => throw DynamicTypeError(e)
         }
       case ConstDecl(x,v1,e2) if(isValue(v1))=> substitute(e2,v1,x)
 
